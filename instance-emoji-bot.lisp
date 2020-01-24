@@ -9,6 +9,8 @@
 	"donphan.social" "sleeping.town" "chomp.life"
 	"computerfairi.es" "sanguine.space")
   "a default list of known instances")
+(defvar *emoji-dir* (merge-pathnames "emojis/" (uiop:temporary-directory))
+  "directory to save emojis")
 (defvar *blacklist* nil
   "domain blacklist")
 
@@ -64,12 +66,15 @@
   (let ((emojis (decode-json-from-string (load-emoji-file (random-from-list *known-instances*)))))
     (random-from-list emojis)))
 
+(defun clean-downloads ()
+  (mapcar #'delete-file (uiop:directory-files *emoji-dir*)))
+
 (defun download-emoji (alist)
   (let ((filename (merge-pathnames (concatenate 'string
 						(agetf alist :shortcode)
 						"."
 						(pathname-type (agetf alist :url)))
-				   (uiop:temporary-directory))))
+				   *emoji-dir*)))
     (handler-case
 	(prog1 filename
 	  (dex:fetch (agetf alist :url) filename))
@@ -91,6 +96,7 @@
 
 (defun main ()
   (load-instance-list)
+  (ensure-directories-exist *emoji-dir*)
   (add-command "block" #'block-domain :privileged t)
   (run-bot (make-instance 'mastodon-bot :config-file "bot.config"
 					:on-notification #'parse-reply)
