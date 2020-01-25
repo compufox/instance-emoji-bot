@@ -1,9 +1,9 @@
 # instance-emoji-bot
 ### _ava fox_
 
-This is a project to do ... something.
+mastodon bot that posts random custom emojis from various instances
 
 ## License
 
-Specify license here
+NPLv1+
 
