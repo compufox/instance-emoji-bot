@@ -27,8 +27,13 @@
 	  (write-instance-list)
 	  
 	  (let ((emoji (choose-emoji domain)))
-	    (reply status (format nil "~a from ~a" (agetf emoji :shortcode) domain)
-		   :media (download-emoji emoji))))))))
+	    (loop for filename = (download-emoji emoji)      
+		  until filename
+			 
+		  finally 
+		     (reply status (format nil "~a from ~a" (agetf emoji :shortcode) domain)
+			    :sensitive t
+			    :media (download-emoji emoji)))))))))
 
 (defun block-domain (status)
   ;; scans the post for something that looks like a domain name
@@ -97,13 +102,25 @@
   (load-instance-list)
   (ensure-directories-exist *emoji-dir*)
   (add-command "block" #'block-domain :privileged t)
-  (run-bot (make-instance 'mastodon-bot :config-file "bot.config"
-					:on-notification #'parse-reply)
-    (after-every (2 :hours :async t) (update-emojis))
-    (after-every (1 :day :async t) (clean-downloads))
-    (after-every (1 :hour)
-      (let ((emoji (choose-emoji)))
-	(post (format nil "~a from ~a" (agetf emoji :shortcode) domain)
-	      :cw "emoji"
-	      :sensitive t
-	      :media (download-emoji emoji))))))
+
+  (handler-case
+      (with-user-abort
+	  (run-bot (make-instance 'mastodon-bot :config-file "bot.config"
+						:on-notification #'parse-reply)
+	    (after-every (2 :hours :async t) (update-emojis))
+	    (after-every (1 :day :async t) (clean-downloads))
+	    (after-every (1 :hour)
+	      (multiple-value-bind (emoji domain) (choose-emoji)
+		(loop for filename = (download-emoji emoji)      
+		      until filename
+			 
+		      finally 
+			 (post (format nil "~a from ~a" (agetf emoji :shortcode) domain)
+			       :cw "emoji"
+			       :sensitive t
+			       :media filename)))))
+    (user-abort ()
+      (format t "shutting down~%"))
+    (error (e)
+      (format t "hit error ~A~%" e)))))
+  
