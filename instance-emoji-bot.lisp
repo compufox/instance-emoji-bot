@@ -26,7 +26,7 @@
 	  (download-emoji-list domain)
 	  (write-instance-list)
 	  
-	  (let ((emoji (choose-emoji)))
+	  (let ((emoji (choose-emoji domain)))
 	    (reply status (format nil "~a from ~a" (agetf emoji :shortcode) domain)
 		   :media (download-emoji emoji))))))))
 
@@ -59,9 +59,10 @@
 (defun load-emoji-file (instance)
   (str:from-file (concatenate 'string instance ".emojis")))
 
-(defun choose-emoji ()
-  (let ((emojis (decode-json-from-string (load-emoji-file (random-from-list *known-instances*)))))
-    (random-from-list emojis)))
+(defun choose-emoji (&optional domain)
+  (let ((chosen-domain (or domain (random-from-list *known-instances*))))
+    (values (random-from-list (decode-json-from-string (load-emoji-file chosen-domain)))
+	    chosen-domain)))
 
 (defun clean-downloads ()
   (mapcar #'delete-file (uiop:directory-files *emoji-dir*)))
