@@ -101,7 +101,7 @@
 				   *emoji-dir*)))
     (handler-case
 	(prog1 filename
-	  (dex:fetch (agetf alist :url) filename) :if-exists nil)
+	  (dex:fetch (agetf alist :url) filename :if-exists nil))
       (error (e)
 	(log:warn "errored trying to fetch" (agetf alist :url))
 	nil))))
