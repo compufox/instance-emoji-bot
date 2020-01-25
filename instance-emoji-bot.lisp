@@ -28,6 +28,9 @@
 	when found
 	  return found))
 
+(defun blocked-p (domain)
+  (member domain *blacklist* :test #'equal))
+
 (defun parse-reply (notification)
   (when (mention-p notification)
     (let* ((status (tooter:status notification))
@@ -123,7 +126,7 @@
   (handler-case
       (multiple-value-bind (opts args) (get-opts)
 	(when (or (getf opts :help)
-		  (every #'null opts args))
+		  (every #'null opts))
 	  (unix-opts:describe
 	   :prefix ""
 	   :usage-of "instance-emoji-bot")
