@@ -6,7 +6,7 @@
   :license  "Specify license here"
   :version "0.0.1"
   :serial t
-  :depends-on (#:glacier #:cl-ppcre #:dexador #:cl-json #:str)
+  :depends-on (#:glacier #:cl-ppcre #:dexador #:cl-json #:str #:with-user-abort)
   :components ((:file "package")
                (:file "instance-emoji-bot"))
   :build-operation "program-op"
