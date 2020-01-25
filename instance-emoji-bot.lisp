@@ -17,12 +17,18 @@
 (defvar *blacklist* nil
   "domain blacklist")
 
+
+(defun parse-domain (text)
+  (loop for word in (str:words text)
+	for found = (cl-ppcre:scan-to-strings "(?:[^./,<>]+[.])*([^/.]+[.][^/.,<>]+)" word)
+	when found
+	  return found))
+
 (defun parse-reply (notification)
   (when (mention-p notification)
-    (let ((status (tooter:status notification)))
-
+    (let* ((status (tooter:status notification))
+	   (domain (parse-domain (tooter:content status))))
       ;; scans the post for something that looks like a domain name
-      (let ((domain (cl-ppcre:scan-to-strings "(?:[^./]+[.])*([^/.]+[.][^/.]+)" (tooter:content status))))
 	(when (and domain
 		   (not (member domain *blacklist* :test #'string=)))
 	  (push domain *known-instances*)
@@ -40,7 +46,7 @@
 
 (defun block-domain (status)
   ;; scans the post for something that looks like a domain name
-  (let ((domain (cl-ppcre:scan-to-strings "(?:[^./]+[.])*([^/.]+[.][^/.]+)" (tooter:content status))))
+  (let ((domain (parse-domain (tooter:content status))))
     (push domain *blacklist*)
     (setf *known-instances* (remove-if #'blocked-p *known-instances* :test #'string=))
     (write-instance-list)
