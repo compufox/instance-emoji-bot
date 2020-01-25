@@ -39,6 +39,8 @@
       (if domain
 	  (unless (blocked-p domain)
 	    (push domain *known-instances*)
+	    (setf *known-instances*
+		  (remove-duplicates *known-instances* :test #'string=))
 	    (download-emoji-list domain)
 	    (write-instance-list)
 	    
@@ -50,7 +52,9 @@
 		       (when (log:info)
 			 (log:info "replying to" (tooter:username (tooter:account status))
 				   "with" (agetf emoji :shortcode) "from" domain))
-		       (reply status (format nil "~a from ~a" (agetf emoji :shortcode) domain)
+		       (reply status (format nil "~a from ~a"
+					     (agetf emoji :shortcode)
+					     domain)
 			      :sensitive t
 			      :media (download-emoji emoji)))))
 	  (reply status *no-domain-message*)))))
@@ -83,11 +87,12 @@
   (nth (random (length lst)) lst))
 
 (defun load-emoji-file (instance)
-  (str:from-file (concatenate 'string instance ".emojis")))
+  (uiop:read-file-string (concatenate 'string instance ".emojis")))
 
 (defun choose-emoji (&optional domain)
   (let ((chosen-domain (or domain (random-from-list *known-instances*))))
-    (values (random-from-list (decode-json-from-string (load-emoji-file chosen-domain)))
+    (values (random-from-list
+	     (decode-json-from-string (load-emoji-file chosen-domain)))
 	    chosen-domain)))
 
 (defun clean-downloads ()
@@ -128,7 +133,6 @@
 	(when (or (getf opts :help)
 		  (every #'null opts))
 	  (unix-opts:describe
-	   :prefix ""
 	   :usage-of "instance-emoji-bot")
 	  (uiop:quit 0))
 	
@@ -173,7 +177,9 @@
 			 (when (log:info)
 			   (log:info "posting emoji" (agetf emoji :shortcode)
 				     "from" domain))
-			 (post (format nil "~a from ~a" (agetf emoji :shortcode) domain)
+			 (post (format nil "~a from ~a"
+				       (agetf emoji :shortcode)
+				       domain)
 			       :cw "emoji"
 			       :sensitive t
 			       :media filename))))))
