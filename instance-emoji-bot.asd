@@ -1,12 +1,14 @@
 ;;;; instance-emoji-bot.asd
 
 (asdf:defsystem #:instance-emoji-bot
-  :description "Describe instance-emoji-bot here"
+  :description "mastodon bot that posts random custom emojis from various instances"
   :author "ava fox"
-  :license  "Specify license here"
+  :license  "nplv1+"
   :version "0.0.1"
   :serial t
-  :depends-on (#:glacier #:cl-ppcre #:dexador #:cl-json #:str #:with-user-abort)
+  :depends-on (#:glacier #:cl-ppcre #:dexador
+	       #:cl-json #:str #:with-user-abort
+	       #:unix-opts #:log4cl)
   :components ((:file "package")
                (:file "instance-emoji-bot"))
   :build-operation "program-op"

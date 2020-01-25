@@ -3,6 +3,9 @@
 (in-package #:instance-emoji-bot)
 
 (defvar *emoji-list* nil)
+
+(defvar *config-file* nil) 
+
 (defvar *known-instances*
   (list "social.computerfox.xyz" "glaceon.social" "queer.party"
 	"vulpine.club" "botsin.space" "cybre.space" "yiff.life"
@@ -99,13 +102,32 @@
       nil)))
 
 (defun main ()
+  (handler-case
+      (multiple-value-bind (opts args) (get-opts)
+	(when (or (getf opts :help)
+		  (every #'null opts args))
+	  (unix-opts:describe
+	   :prefix ""
+	   :usage-of "instance-emoji-bot")
+	  (uiop:quit 0))
+	
+	(if (getf opts :log)
+	    (log:config :info)
+	    (log:config :warn))
+	
+	(setf *config-file* (getf opts :config)))
+    (unix-opts:missing-arg (e)
+      (format t "ERROR: \"~a\" requires an argument~%" (unix-opts:option e))
+      (format t "       view help for usage~%")
+      (uiop:quit 1)))
+  
   (load-instance-list)
   (ensure-directories-exist *emoji-dir*)
   (add-command "block" #'block-domain :privileged t)
 
   (handler-case
       (with-user-abort
-	  (run-bot (make-instance 'mastodon-bot :config-file "bot.config"
+	  (run-bot (make-instance 'mastodon-bot :config-file *config-file*
 						:on-notification #'parse-reply)
 	    (after-every (2 :hours :async t) (update-emojis))
 	    (after-every (1 :day :async t) (clean-downloads))
