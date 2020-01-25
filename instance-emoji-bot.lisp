@@ -18,10 +18,6 @@
   (when (mention-p notification)
     (let ((status (tooter:status notification)))
 
-      ;; strips the bot's username out of the status
-      (setf (tooter:content status)
-	    (str:replace-all (bot-username glacier::*bot*) "" (tooter:content status)))
-
       ;; scans the post for something that looks like a domain name
       (let ((domain (cl-ppcre:scan-to-strings "(?:[^./]+[.])*([^/.]+[.][^/.]+)" (tooter:content status))))
 	(when (and domain
@@ -35,10 +31,6 @@
 		   :media (download-emoji emoji))))))))
 
 (defun block-domain (status)
-  ;; strips the bot's username out of the status
-  (setf (tooter:content status)
-	(str:replace-all (bot-username glacier::*bot*) "" (tooter:content status)))
-
   ;; scans the post for something that looks like a domain name
   (let ((domain (cl-ppcre:scan-to-strings "(?:[^./]+[.])*([^/.]+[.][^/.]+)" (tooter:content status))))
     (push domain *blacklist*)
