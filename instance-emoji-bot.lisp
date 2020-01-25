@@ -12,11 +12,15 @@
 	"donphan.social" "sleeping.town" "chomp.life"
 	"computerfairi.es" "sanguine.space")
   "a default list of known instances")
+
 (defvar *emoji-dir* (merge-pathnames "emojis/" (uiop:temporary-directory))
   "directory to save emojis")
+
 (defvar *blacklist* nil
   "domain blacklist")
 
+(defvar *no-domain-message* "sorry, i cant parse a domain name, please try again")
+(defvar *restricted-message* "sorry, i cant fetch from there")
 
 (defun parse-domain (text)
   (loop for word in (str:words text)
@@ -29,26 +33,31 @@
     (let* ((status (tooter:status notification))
 	   (domain (parse-domain (tooter:content status))))
       ;; scans the post for something that looks like a domain name
-	(when (and domain
-		   (not (member domain *blacklist* :test #'string=)))
-	  (push domain *known-instances*)
-	  (download-emoji-list domain)
-	  (write-instance-list)
-	  
-	  (let ((emoji (choose-emoji domain)))
-	    (loop for filename = (download-emoji emoji)      
-		  until filename
-			 
-		  finally 
-		     (reply status (format nil "~a from ~a" (agetf emoji :shortcode) domain)
-			    :sensitive t
-			    :media (download-emoji emoji)))))))))
+      (if domain
+	  (unless (blocked-p domain)
+	    (push domain *known-instances*)
+	    (download-emoji-list domain)
+	    (write-instance-list)
+	    
+	    (let ((emoji (choose-emoji domain)))
+	      (loop for filename = (download-emoji emoji)      
+		    until filename
+		    
+		    finally
+		       (when (log:info)
+			 (log:info "replying to" (tooter:username (tooter:account status))
+				   "with" (agetf emoji :shortcode) "from" domain))
+		       (reply status (format nil "~a from ~a" (agetf emoji :shortcode) domain)
+			      :sensitive t
+			      :media (download-emoji emoji)))))
+	  (reply status *no-domain-message*)))))
 
 (defun block-domain (status)
   ;; scans the post for something that looks like a domain name
   (let ((domain (parse-domain (tooter:content status))))
     (push domain *blacklist*)
-    (setf *known-instances* (remove-if #'blocked-p *known-instances* :test #'string=))
+    (setf *known-instances*
+	  (remove-if #'blocked-p *known-instances* :test #'string=))
     (write-instance-list)
     (write-blacklist)
     (reply status (format nil "blocked ~a" domain))))
@@ -91,6 +100,7 @@
 	(prog1 filename
 	  (dex:fetch (agetf alist :url) filename) :if-exists nil)
       (error (e)
+	(log:warn "errored trying to fetch" (agetf alist :url))
 	nil))))
 
 (defun update-emojis ()
@@ -103,8 +113,10 @@
     (dex:http-request-not-found ()
       (push instance *blacklist*)
       (write-blacklist)
+      (log:warn "404'd on" instance)
       nil)
     (error (e)
+      (log:warn "hit error when fetching emoji for" instance)
       nil)))
 
 (defun main ()
@@ -135,20 +147,36 @@
       (with-user-abort
 	  (run-bot (make-instance 'mastodon-bot :config-file *config-file*
 						:on-notification #'parse-reply)
-	    (after-every (2 :hours :async t) (update-emojis))
-	    (after-every (1 :day :async t) (clean-downloads))
+	    
+	    ;; update the emoji lists every 2 days
+	    (after-every (2 :days :async t)
+	      (when (log:info)
+		(log:info "updating emojis"))
+	      (update-emojis))
+
+	    ;; clean out our saved emojis every week
+	    (after-every (1 :week :async t)
+	      (when (log:info)
+		(log:info "cleaning emojis"))
+	      (clean-downloads))
+
+	    ;; every hour post an emoji
 	    (after-every (1 :hour)
 	      (multiple-value-bind (emoji domain) (choose-emoji)
 		(loop for filename = (download-emoji emoji)      
 		      until filename
 			 
-		      finally 
+		      finally
+			 (when (log:info)
+			   (log:info "posting emoji" (agetf emoji :shortcode)
+				     "from" domain))
 			 (post (format nil "~a from ~a" (agetf emoji :shortcode) domain)
 			       :cw "emoji"
 			       :sensitive t
-			       :media filename)))))
+			       :media filename))))))
     (user-abort ()
-      (format t "shutting down~%"))
+      (when (log:info)
+	(log:info "shutting down")))
     (error (e)
-      (format t "hit error ~A~%" e)))))
+      (log:error "encountered unrecoverable error" e))))
   
