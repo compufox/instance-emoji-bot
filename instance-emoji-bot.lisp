@@ -34,10 +34,15 @@
   ;; scans the post for something that looks like a domain name
   (let ((domain (cl-ppcre:scan-to-strings "(?:[^./]+[.])*([^/.]+[.][^/.]+)" (tooter:content status))))
     (push domain *blacklist*)
-    (write-blacklist)))
+    (setf *known-instances* (remove-if #'blocked-p *known-instances* :test #'string=))
+    (write-instance-list)
+    (write-blacklist)
+    (reply status (format nil "blocked ~a" domain))))
 
 (defun load-instance-list ()
-  (setf *known-instances* (uiop:read-file-lines #P"instance.list")))
+  (setf *known-instances* (or (uiop:read-file-lines #P"instance.list"
+						    :if-does-not-exist :create)
+			      *known-instances*)))
 
 (defun write-instance-list ()
   (str:to-file #P"instance.list" (str:join (string #\Newline) *known-instances*)))
@@ -69,7 +74,7 @@
 				   *emoji-dir*)))
     (handler-case
 	(prog1 filename
-	  (dex:fetch (agetf alist :url) filename))
+	  (dex:fetch (agetf alist :url) filename) :if-exists nil)
       (error (e)
 	nil))))
 
@@ -82,6 +87,7 @@
 		   (dex:get (format nil "https://~a/api/v1/custom_emojis" instance)))
     (dex:http-request-not-found ()
       (push instance *blacklist*)
+      (write-blacklist)
       nil)
     (error (e)
       nil)))
