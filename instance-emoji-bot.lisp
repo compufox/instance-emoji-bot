@@ -157,9 +157,9 @@
       (with-user-abort
 	  (run-bot (make-instance 'mastodon-bot :config-file *config-file*
 						:on-notification #'parse-reply)
-	    
+		   
 	    ;; update the emoji lists every 2 days
-	    (after-every (2 :days :async t)
+	    (after-every (2 :days :async t :run-immediately t)
 	      (when (log:info)
 		(log:info "updating emojis"))
 	      (update-emojis))
