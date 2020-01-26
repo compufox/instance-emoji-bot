@@ -92,9 +92,16 @@
 
 (defun choose-emoji (&optional domain)
   (let ((chosen-domain (or domain (random-from-list *known-instances*))))
-    (values (random-from-list
-	     (decode-json-from-string (load-emoji-file chosen-domain)))
-	    chosen-domain)))
+    (if (emoji-file-exists-p chosen-domain)
+	(values (random-from-list
+		 (decode-json-from-string (load-emoji-file chosen-domain)))
+		chosen-domain)
+	(progn
+	  (download-emoji-list domain)
+	  (choose-emoji domain)))))
+
+(defun emoji-file-exists-p (domain)
+  (uiop:file-exists-p (concatenate 'string domain ".emojis")))
 
 (defun clean-downloads ()
   (mapcar #'delete-file (uiop:directory-files *emoji-dir*)))
