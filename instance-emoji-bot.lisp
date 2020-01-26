@@ -99,16 +99,18 @@
   (mapcar #'delete-file (uiop:directory-files *emoji-dir*)))
 
 (defun download-emoji (alist)
-  (let ((filename (merge-pathnames (concatenate 'string
-						(agetf alist :shortcode)
-						"."
-						(pathname-type (agetf alist :url)))
+  (let* ((extension (pathname-type (first (str:split #\? (agetf alist :url)))))
+	 (filename (merge-pathnames (concatenate 'string
+						 (agetf alist :shortcode)
+						 "."
+						 extension)
 				   *emoji-dir*)))
     (handler-case
 	(prog1 filename
 	  (dex:fetch (agetf alist :url) filename :if-exists nil))
       (error (e)
-	(log:warn "errored trying to fetch" (agetf alist :url))
+	(log:warn "encountered error:" e
+		  "trying to fetch" (agetf alist :url))
 	nil))))
 
 (defun update-emojis ()
