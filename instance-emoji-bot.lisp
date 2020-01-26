@@ -10,7 +10,8 @@
   (list "social.computerfox.xyz" "glaceon.social" "queer.party"
 	"vulpine.club" "botsin.space" "cybre.space" "yiff.life"
 	"donphan.social" "sleeping.town" "chomp.life"
-	"computerfairi.es" "sanguine.space")
+	"computerfairi.es" "sanguine.space" "monsterpit.net"
+	"glaceon.social")
   "a default list of known instances")
 
 (defvar *emoji-dir* (merge-pathnames "emojis/" (uiop:temporary-directory))
