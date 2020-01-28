@@ -59,7 +59,7 @@
 			
 			finally
 			   (when (log:info)
-			     (log:info "replying to" (status:id status)
+			     (log:info "replying to" (tooter:id status)
 				       "with" (agetf emoji :shortcode) "from" domain))
 
 			   ;; if we're here then everything went okay!
