@@ -18,7 +18,13 @@
   "directory to save emojis")
 
 (defvar *blacklist*
-  (list "gab.com")
+  (list "gab.com" "spinster.xyz" "glindr.org" "gleasonator.com"
+	"imvegan.fyi" "freespeachextremist.com" "develop.gab.com"
+	"gab.sleeck.eu" "liberdon.com" "neckbeard.xyz"
+	"qoto.org" "pleroma.kiwifarms.net" "gab.ai" "gabfed.com"
+	"gab.io" "gab.polaris-1.work" "gab.protohype.net"
+	"kiwifarms.is" "kiwifarms.cc" "ms-olive.club"
+	"spinster.dev" "yang.social")
   "domain blacklist")
 
 (defvar *no-domain-message* "sorry, i cant parse a domain name, please try again")
