@@ -17,11 +17,13 @@
 (defvar *emoji-dir* (merge-pathnames "emojis/" (uiop:temporary-directory))
   "directory to save emojis")
 
-(defvar *blacklist* nil
+(defvar *blacklist*
+  (list "gab.com")
   "domain blacklist")
 
 (defvar *no-domain-message* "sorry, i cant parse a domain name, please try again")
 (defvar *restricted-message* "sorry, i cant fetch from there")
+(defvar *download-error* "sorry, i was unable to get emojis for there :c")
 
 (defun parse-domain (text)
   (loop for word in (str:words text)
@@ -43,21 +45,34 @@
 	    (setf *known-instances*
 		  (remove-duplicates *known-instances* :test #'string=))
 	    (download-emoji-list domain)
-	    (write-instance-list)
 	    
-	    (let ((emoji (choose-emoji domain)))
-	      (loop for filename = (download-emoji emoji)      
-		    until filename
-		    
-		    finally
-		       (when (log:info)
-			 (log:info "replying to" (tooter:username (tooter:account status))
-				   "with" (agetf emoji :shortcode) "from" domain))
-		       (reply status (format nil "~a from ~a"
-					     (agetf emoji :shortcode)
-					     domain)
-			      :sensitive t
-			      :media (download-emoji emoji)))))
+	    (let ((emoji (choose-emoji domain 10)))
+	      (if emoji
+		  (loop for filename = (download-emoji emoji)      
+			until filename
+			
+			finally
+			   (when (log:info)
+			     (log:info "replying to" (status:id status)
+				       "with" (agetf emoji :shortcode) "from" domain))
+
+			   ;; if we're here then everything went okay!
+			   (reply status (format nil "~a from ~a"
+						 (agetf emoji :shortcode)
+						 domain)
+				  :sensitive t
+				  :media (download-emoji emoji))
+			   
+			   ;; only write the instance list here, because it means
+			   ;;  we were able to correctly ping the site
+			   (write-instance-list))
+
+		  ;; if we're here then we failed to choose an emoji, which means that
+		  ;;  we failed to download the list
+		  (reply status *download-error*))))
+
+	  ;; if we're here then we failed to parse a domain name from
+	  ;;  the mention we received
 	  (reply status *no-domain-message*)))))
 
 (defun block-domain (status)
@@ -90,15 +105,16 @@
 (defun load-emoji-file (instance)
   (uiop:read-file-string (concatenate 'string instance ".emojis")))
 
-(defun choose-emoji (&optional domain)
+(defun choose-emoji (&optional domain retry-count)
   (let ((chosen-domain (or domain (random-from-list *known-instances*))))
     (if (emoji-file-exists-p chosen-domain)
 	(values (random-from-list
 		 (decode-json-from-string (load-emoji-file chosen-domain)))
 		chosen-domain)
-	(progn
-	  (download-emoji-list domain)
-	  (choose-emoji domain)))))
+	(if (>= retry-count 1)
+	    (progn
+	      (download-emoji-list domain)
+	      (choose-emoji domain (1- retry-count)))))))
 
 (defun emoji-file-exists-p (domain)
   (uiop:file-exists-p (concatenate 'string domain ".emojis")))
@@ -132,6 +148,9 @@
       (push instance *blacklist*)
       (write-blacklist)
       (log:warn "404'd on" instance)
+      nil)
+    (dex:http-request-forbidden ()
+      (log:warn "oof," instance "probably has auth'd fetch enabled :c")
       nil)
     (error (e)
       (log:warn "hit error when fetching emoji for" instance)
