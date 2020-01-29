@@ -47,12 +47,10 @@
       ;; scans the post for something that looks like a domain name
       (if domain
 	  (unless (blocked-p domain)
-	    (push domain *known-instances*)
-	    (setf *known-instances*
-		  (remove-duplicates *known-instances* :test #'string=))
 	    (download-emoji-list domain)
 	    
-	    (let ((emoji (choose-emoji domain 10)))
+	    (let ((emoji (choose-emoji :domain domain
+				       :retry-count 10)))
 	      (if emoji
 		  (loop for filename = (download-emoji emoji)      
 			until filename
@@ -71,6 +69,9 @@
 			   
 			   ;; only write the instance list here, because it means
 			   ;;  we were able to correctly ping the site
+			   (push domain *known-instances*)
+			   (setf *known-instances*
+				 (remove-duplicates *known-instances* :test #'string=))
 			   (write-instance-list))
 
 		  ;; if we're here then we failed to choose an emoji, which means that
@@ -111,7 +112,7 @@
 (defun load-emoji-file (instance)
   (uiop:read-file-string (concatenate 'string instance ".emojis")))
 
-(defun choose-emoji (&optional domain retry-count)
+(defun choose-emoji (&key domain retry-count)
   (let ((chosen-domain (or domain (random-from-list *known-instances*))))
     (if (emoji-file-exists-p chosen-domain)
 	(values (random-from-list
@@ -120,7 +121,8 @@
 	(if (>= retry-count 1)
 	    (progn
 	      (download-emoji-list domain)
-	      (choose-emoji domain (1- retry-count)))))))
+	      (choose-emoji :domain domain
+			    :retry-count (1- retry-count)))))))
 
 (defun emoji-file-exists-p (domain)
   (uiop:file-exists-p (concatenate 'string domain ".emojis")))
@@ -155,7 +157,7 @@
       (write-blacklist)
       (log:warn "404'd on" instance)
       nil)
-    (dex:http-request-forbidden ()
+    (dex:http-request-unauthorized ()
       (log:warn "oof," instance "probably has auth'd fetch enabled :c")
       nil)
     (error (e)
@@ -204,12 +206,19 @@
 
 	    ;; every hour post an emoji
 	    (after-every (1 :hour)
-	      (multiple-value-bind (emoji domain) (choose-emoji)
-		(loop for filename = (download-emoji emoji)      
-		      until filename
-			 
-		      finally
-			 (when (log:info)
+	      (tagbody choose
+	        (multiple-value-bind (emoji domain) (choose-emoji :retry-count 10)
+		  (loop with count = 10
+			for filename = (download-emoji emoji)
+		        until filename
+
+			do (setf count (1- count))
+			
+			if (zerop count)
+			do (go choose)
+			
+		        finally
+		       	 (when (log:info)
 			   (log:info "posting emoji" (agetf emoji :shortcode)
 				     "from" domain))
 			 (post (format nil "~a from ~a"
@@ -217,7 +226,7 @@
 				       domain)
 			       :cw "emoji"
 			       :sensitive t
-			       :media filename))))))
+			       :media filename)))))))
     (user-abort ()
       (when (log:info)
 	(log:info "shutting down")))
