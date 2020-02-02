@@ -8,7 +8,7 @@
 
 (defvar *known-instances*
   (list "social.computerfox.xyz" "glaceon.social" "queer.party"
-	"vulpine.club" "botsin.space" "cybre.space" "yiff.life"
+	"botsin.space" "cybre.space" "yiff.life"
 	"donphan.social" "sleeping.town" "chomp.life"
 	"computerfairi.es" "sanguine.space" "monsterpit.net"
 	"glaceon.social")
@@ -189,8 +189,9 @@
 
   (handler-case
       (with-user-abort
-	  (run-bot (make-instance 'mastodon-bot :config-file *config-file*
-						:on-notification #'parse-reply)
+	  (run-bot ((make-instance 'mastodon-bot :config-file *config-file*
+				   :on-notification #'parse-reply)
+		    :delete-command t)
 		   
 	    ;; update the emoji lists every 2 days
 	    (after-every (2 :days :async t :run-immediately t)
